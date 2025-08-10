@@ -18,9 +18,8 @@ WORKDIR /app
 # Copy package.json, package-lock.json and .npmrc
 COPY package*.json .npmrc ./
 
-# Install app dependencies using package-lock.json with build cache
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production
+# Install app dependencies using package-lock.json
+RUN npm ci --only=production
 
 # Bundle app source
 COPY . .
