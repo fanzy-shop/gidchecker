@@ -17,6 +17,23 @@ const upload = multer({
 app.use(cors());
 app.use(express.json());
 
+// Add production optimizations
+if (process.env.NODE_ENV === 'production') {
+  // Compression middleware for faster response times
+  const compression = require('compression');
+  app.use(compression());
+  
+  // Security headers
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+  
+  console.log('Production optimizations enabled');
+}
+
 // Game configuration
 const SUPPORTED_GAMES = {
   hok: {

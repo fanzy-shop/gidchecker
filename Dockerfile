@@ -9,16 +9,18 @@ RUN apt-get update \
 
 # Set environment variables for Puppeteer to use system Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    NODE_ENV=production
 
 # Create app directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Copy package.json, package-lock.json and .npmrc
+COPY package*.json .npmrc ./
 
-# Install app dependencies using package-lock.json
-RUN npm ci --only=production
+# Install app dependencies using package-lock.json with build cache
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production
 
 # Bundle app source
 COPY . .
