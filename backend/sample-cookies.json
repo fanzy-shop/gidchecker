@@ -1,0 +1,13 @@
+[
+  {
+    "name": "cookie_name",
+    "value": "cookie_value",
+    "domain": ".midasbuy.com",
+    "path": "/",
+    "expires": -1,
+    "size": 123,
+    "httpOnly": true,
+    "secure": true,
+    "session": false
+  }
+] 
