@@ -190,7 +190,7 @@ async function initBrowser() {
       await browser.close().catch(() => {});
     }
     
-    browser = await puppeteer.launch({
+    const launchOptions = {
       headless: true,
       args: [
         '--no-sandbox',
@@ -212,7 +212,15 @@ async function initBrowser() {
         '--disable-translate'
       ],
       defaultViewport: { width: 1366, height: 768 }
-    });
+    };
+    
+    // Use system Chromium if environment variable is set
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      console.log(`Using Chromium at: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    
+    browser = await puppeteer.launch(launchOptions);
     
     console.log('Browser initialized successfully');
     
