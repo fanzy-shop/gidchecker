@@ -38,9 +38,6 @@ pids
 # Temporary uploads
 uploads/
 
-# Cookies
-cookies.json
-
 # IDE files
 .idea/
 .vscode/
