@@ -41,9 +41,19 @@ const SUPPORTED_GAMES = {
   // Add more games here in the future
 };
 
-// Load cookies from file
+// Load cookies from file or environment variable
 const loadCookies = () => {
   try {
+    // First try to load from environment variable (for Railway deployment)
+    if (process.env.COOKIES_JSON) {
+      try {
+        return JSON.parse(process.env.COOKIES_JSON);
+      } catch (error) {
+        console.error('Error parsing cookies from environment variable:', error);
+      }
+    }
+    
+    // Fall back to file if environment variable is not set
     const cookiesPath = path.join(__dirname, '..', 'cookies.json');
     if (fs.existsSync(cookiesPath)) {
       const cookiesData = fs.readFileSync(cookiesPath, 'utf8');
