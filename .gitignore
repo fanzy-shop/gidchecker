@@ -14,9 +14,6 @@ yarn-error.log
 # Debug files
 debug-screenshot.png
 
-# Cookies file (contains sensitive data)
-cookies.json
-
 # OS files
 .DS_Store
 Thumbs.db
