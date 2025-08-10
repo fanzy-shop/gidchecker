@@ -40,12 +40,12 @@ const SUPPORTED_GAMES = {
     name: "Honor of Kings",
     url: "https://www.midasbuy.com/midasbuy/br/redeem/hok",
     selectors: {
-      switchIcon: 'i.i-midas\\:switch.icon',
-      inputField: '.SelectServerBox_input_wrap_box__qq\\+Iq input',
-      clearButton: '.SelectServerBox_clean_btn__l9g-e',
-      confirmButton: '.Button_btn__P0ibl.Button_btn_primary__1ncdM',
-      errorMessage: '.SelectServerBox_error_text__JWMz-',
-      playerName: '.UserDataBox_text__PBFYE'
+      switchIcon: 'i[class*="switch"]',
+      inputField: 'input[placeholder*="ID"]',
+      clearButton: 'div[class*="clean_btn"]',
+      confirmButton: 'div[class*="btn_primary"]',
+      errorMessage: 'div[class*="error_text"]',
+      playerName: 'div[class*="UserDataBox_text"]'
     },
     errorText: 'ID de jogo inválida'
   },
@@ -53,12 +53,12 @@ const SUPPORTED_GAMES = {
     name: "PUBG Mobile",
     url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
     selectors: {
-      switchIcon: 'i.i-midas\\:switch.icon',
-      inputField: '.SelectServerBox_input_wrap_box__qq\\+Iq input',
-      clearButton: '.SelectServerBox_clean_btn__l9g-e',
-      confirmButton: '.Button_btn__P0ibl.Button_btn_primary__1ncdM',
-      errorMessage: '.SelectServerBox_error_text__JWMz-',
-      playerName: '.UserDataBox_text__PBFYE'
+      switchIcon: 'i[class*="switch"]',
+      inputField: 'input[placeholder*="ID"]',
+      clearButton: 'div[class*="clean_btn"]',
+      confirmButton: 'div[class*="btn_primary"]',
+      errorMessage: 'div[class*="error_text"]',
+      playerName: 'div[class*="UserDataBox_text"]'
     },
     errorText: 'ID de jogo inválida'
   }
@@ -301,7 +301,7 @@ async function createPreloadedPage(gameId) {
   }
   
   const page = await browser.newPage();
-  page.setDefaultTimeout(10000);
+  page.setDefaultTimeout(15000); // Increase timeout to 15 seconds
   
   // Optimize page performance
   await page.setCacheEnabled(true);
@@ -324,10 +324,23 @@ async function createPreloadedPage(gameId) {
   }
   
   // Navigate to the game's page
-  await page.goto(gameConfig.url, {
-    waitUntil: 'domcontentloaded',
-    timeout: 20000
-  });
+  try {
+    await page.goto(gameConfig.url, {
+      waitUntil: 'networkidle2', // Changed from domcontentloaded to networkidle2
+      timeout: 30000 // Increase timeout to 30 seconds
+    });
+    
+    // Wait for the page to be fully loaded
+    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
+    
+  } catch (error) {
+    console.error(`Error loading page for game ${gameId}:`, error);
+    // Try one more time with different options
+    await page.goto(gameConfig.url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+  }
   
   return page;
 }
@@ -486,23 +499,84 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
     // Bring the page to front to ensure it's active
     await bringToFront(page);
     
-    // Click the switch icon
+    // Try to find and click the switch icon with multiple approaches
+    let switchIconClicked = false;
+    
+    // Approach 1: Standard selector
     try {
-      await page.waitForSelector(gameConfig.selectors.switchIcon, { timeout: 5000 });
+      await page.waitForSelector(gameConfig.selectors.switchIcon, { timeout: 5000, visible: true });
       await page.click(gameConfig.selectors.switchIcon);
-      logWithTiming("Clicked switch icon", 0.2, requestId);
+      logWithTiming("Clicked switch icon (standard selector)", 0.2, requestId);
+      switchIconClicked = true;
     } catch (error) {
-      logWithTiming('Switch icon not found, reloading page...', null, requestId);
-      await page.reload({ waitUntil: 'domcontentloaded' });
-      await delay(1000);
-      await bringToFront(page);
-      await page.waitForSelector(gameConfig.selectors.switchIcon, { timeout: 5000 });
-      await page.click(gameConfig.selectors.switchIcon);
+      logWithTiming('Switch icon not found with standard selector, trying alternative approaches...', null, requestId);
+    }
+    
+    // Approach 2: If not found, reload and try with JavaScript
+    if (!switchIconClicked) {
+      try {
+        logWithTiming('Reloading page...', null, requestId);
+        await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
+        await delay(2000);
+        await bringToFront(page);
+        
+        // Try clicking with JavaScript
+        const clickResult = await page.evaluate((selector) => {
+          const elements = document.querySelectorAll('i.icon');
+          for (const el of elements) {
+            if (el.className.includes('switch')) {
+              el.click();
+              return true;
+            }
+          }
+          
+          // Try finding by partial class
+          const switchElements = document.querySelectorAll('[class*="switch"]');
+          if (switchElements.length > 0) {
+            switchElements[0].click();
+            return true;
+          }
+          
+          return false;
+        }, gameConfig.selectors.switchIcon);
+        
+        if (clickResult) {
+          logWithTiming("Clicked switch icon (JavaScript method)", 0.2, requestId);
+          switchIconClicked = true;
+        }
+      } catch (error) {
+        logWithTiming('Error during page reload and JavaScript click', null, requestId);
+      }
+    }
+    
+    // Approach 3: Last resort - try to find the input field directly
+    if (!switchIconClicked) {
+      try {
+        // Try to find the input field directly
+        await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
+        logWithTiming("Switch icon not needed, input field found directly", 0.2, requestId);
+        switchIconClicked = true; // Not actually clicked but we can proceed
+      } catch (inputError) {
+        return res.status(500).json({ 
+          error: 'Could not find player ID input field',
+          game: gameId,
+          id: playerId,
+          during: msToSeconds(Date.now() - startTime)
+        });
+      }
     }
     
     // Wait for the player ID input field
     logWithTiming("Waiting for input field...", 0.2, requestId);
-    await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 5000 });
+    try {
+      await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
+    } catch (error) {
+      logWithTiming('Input field not found after switch icon click, trying one more reload...', null, requestId);
+      await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
+      await delay(2000);
+      await bringToFront(page);
+      await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
+    }
     
     // First click the clear button if it exists and is visible
     await page.evaluate((selector) => {
@@ -518,12 +592,12 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
     
     // Click the confirm button
     logWithTiming("Clicking confirm button", 0.5, requestId);
-    await page.waitForSelector(gameConfig.selectors.confirmButton, { timeout: 5000 });
+    await page.waitForSelector(gameConfig.selectors.confirmButton, { timeout: 8000, visible: true });
     await page.click(gameConfig.selectors.confirmButton);
     
     // Wait for the player name to appear or error message
     logWithTiming("Waiting for response...", null, requestId);
-    await delay(800);
+    await delay(1500); // Increased delay for more reliable response detection
     
     // Check for invalid game ID message
     const isInvalidId = await page.evaluate((errorSelector, errorText) => {
@@ -556,7 +630,7 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
       });
     }
     
-    // Wait for player name element
+    // Wait for player name element with increased timeout
     const playerInfo = await page.evaluate((nameSelector) => {
       // First check if there's a player name
       const nameElement = document.querySelector(nameSelector);
