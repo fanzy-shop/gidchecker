@@ -7,39 +7,14 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Upload password - should be set as an environment variable in production
+const UPLOAD_PASSWORD = process.env.UPLOAD_PASSWORD || 'admin123';
+
 app.use(cors());
 app.use(express.json());
 
-// Game configuration
-const SUPPORTED_GAMES = {
-  hok: {
-    name: "Honor of Kings",
-    url: "https://www.midasbuy.com/midasbuy/br/redeem/hok",
-    selectors: {
-      switchIcon: 'i.i-midas\\:switch.icon',
-      inputField: '.SelectServerBox_input_wrap_box__qq\\+Iq input',
-      clearButton: '.SelectServerBox_clean_btn__l9g-e',
-      confirmButton: '.Button_btn__P0ibl.Button_btn_primary__1ncdM',
-      errorMessage: '.SelectServerBox_error_text__JWMz-',
-      playerName: '.UserDataBox_text__PBFYE'
-    },
-    errorText: 'ID de jogo inválida'
-  },
-  pubg: {
-    name: "PUBG Mobile",
-    url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
-    selectors: {
-      switchIcon: 'i.i-midas\\:switch.icon',
-      inputField: '.SelectServerBox_input_wrap_box__qq\\+Iq input',
-      clearButton: '.SelectServerBox_clean_btn__l9g-e',
-      confirmButton: '.Button_btn__P0ibl.Button_btn_primary__1ncdM',
-      errorMessage: '.SelectServerBox_error_text__JWMz-',
-      playerName: '.UserDataBox_text__PBFYE'
-    },
-    errorText: 'ID de jogo inválida'
-  }
-  // Add more games here in the future
-};
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Load cookies from file or environment variable
 const loadCookies = () => {
@@ -64,6 +39,18 @@ const loadCookies = () => {
   } catch (error) {
     console.error('Error loading cookies:', error);
     return [];
+  }
+};
+
+// Save cookies to file
+const saveCookies = (cookies) => {
+  try {
+    const cookiesPath = path.join(__dirname, '..', 'cookies.json');
+    fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error saving cookies:', error);
+    return false;
   }
 };
 
@@ -399,6 +386,37 @@ function getBaseUrl(req) {
   return `${req.protocol}://${req.get('host')}`;
 }
 
+// Game configuration
+const SUPPORTED_GAMES = {
+  hok: {
+    name: "Honor of Kings",
+    url: "https://www.midasbuy.com/midasbuy/br/redeem/hok",
+    selectors: {
+      switchIcon: 'i.i-midas\\:switch.icon',
+      inputField: '.SelectServerBox_input_wrap_box__qq\\+Iq input',
+      clearButton: '.SelectServerBox_clean_btn__l9g-e',
+      confirmButton: '.Button_btn__P0ibl.Button_btn_primary__1ncdM',
+      errorMessage: '.SelectServerBox_error_text__JWMz-',
+      playerName: '.UserDataBox_text__PBFYE'
+    },
+    errorText: 'ID de jogo inválida'
+  },
+  pubg: {
+    name: "PUBG Mobile",
+    url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
+    selectors: {
+      switchIcon: 'i.i-midas\\:switch.icon',
+      inputField: '.SelectServerBox_input_wrap_box__qq\\+Iq input',
+      clearButton: '.SelectServerBox_clean_btn__l9g-e',
+      confirmButton: '.Button_btn__P0ibl.Button_btn_primary__1ncdM',
+      errorMessage: '.SelectServerBox_error_text__JWMz-',
+      playerName: '.UserDataBox_text__PBFYE'
+    },
+    errorText: 'ID de jogo inválida'
+  }
+  // Add more games here in the future
+};
+
 // Core function to check player ID
 async function checkPlayerId(gameId, playerId, requestId) {
   const startTime = Date.now();
@@ -559,6 +577,50 @@ async function checkPlayerId(gameId, playerId, requestId) {
     };
   }
 }
+
+// Cookie upload endpoint
+app.post('/api/upload-cookies', (req, res) => {
+  const { cookies, password } = req.body;
+  
+  // Validate password
+  if (password !== UPLOAD_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+  
+  try {
+    // Validate cookies format
+    const parsedCookies = JSON.parse(cookies);
+    
+    if (!Array.isArray(parsedCookies)) {
+      return res.status(400).json({ error: 'Cookies must be a JSON array' });
+    }
+    
+    // Save cookies to file
+    const saved = saveCookies(parsedCookies);
+    
+    if (!saved) {
+      return res.status(500).json({ error: 'Failed to save cookies' });
+    }
+    
+    // If we have an environment variable for cookies, update it
+    if (process.env.COOKIES_JSON) {
+      process.env.COOKIES_JSON = cookies;
+    }
+    
+    // Restart browser to apply new cookies
+    initBrowser().catch(console.error);
+    
+    return res.json({ success: true, message: 'Cookies uploaded successfully' });
+  } catch (error) {
+    console.error('Error uploading cookies:', error);
+    return res.status(400).json({ error: 'Invalid cookies format' });
+  }
+});
+
+// Cookie upload page
+app.get('/cookieupload', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cookieupload.html'));
+});
 
 // API endpoint to list all supported games
 app.get('/api/supportedgames', (req, res) => {
