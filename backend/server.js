@@ -161,7 +161,7 @@ async function initBrowser() {
     
     // On Render.com, use the installed Chrome path
     if (isProd) {
-      let chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
+      let chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
       console.log(`Running in production mode, using Chrome at path: ${chromePath}`);
       
       // Check if the Chrome executable exists
@@ -173,10 +173,10 @@ async function initBrowser() {
           console.log(`WARNING: Chrome executable NOT found at ${chromePath}`);
           // Try to find Chrome in common locations
           const possiblePaths = [
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome-stable',
             '/usr/bin/google-chrome',
-            '/usr/bin/google-chrome-stable'
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser'
           ];
           
           for (const path of possiblePaths) {
@@ -184,6 +184,8 @@ async function initBrowser() {
               console.log(`Found Chrome at alternative path: ${path}`);
               chromePath = path;
               break;
+            } else {
+              console.log(`Chrome not found at: ${path}`);
             }
           }
         }
