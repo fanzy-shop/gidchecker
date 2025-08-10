@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: gameidchecker
+    env: node
+    buildCommand: apt-get update && apt-get install -y chromium && export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium && yarn install
+    startCommand: NODE_ENV=production PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium node backend/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/chromium
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: true 

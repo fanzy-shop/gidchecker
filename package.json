@@ -5,7 +5,8 @@
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "nodemon backend/server.js"
+    "dev": "nodemon backend/server.js",
+    "build": "apt-get update && apt-get install -y chromium && export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true"
   },
   "keywords": [
     "midasbuy",

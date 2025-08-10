@@ -129,7 +129,9 @@ async function initBrowser() {
       await browser.close().catch(() => {});
     }
     
-    browser = await puppeteer.launch({
+    // For Render.com deployment
+    const isProd = process.env.NODE_ENV === 'production';
+    const puppeteerOptions = {
       headless: "new", // Hide browser for production
       args: [
         '--no-sandbox',
@@ -155,7 +157,15 @@ async function initBrowser() {
         '--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees'
       ],
       defaultViewport: { width: 1366, height: 768 }
-    });
+    };
+    
+    // On Render.com, use the installed Chrome path
+    if (isProd) {
+      console.log('Running in production mode, using installed Chrome');
+      puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
+    }
+    
+    browser = await puppeteer.launch(puppeteerOptions);
     
     console.log('Browser initialized successfully');
     
