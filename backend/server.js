@@ -161,8 +161,37 @@ async function initBrowser() {
     
     // On Render.com, use the installed Chrome path
     if (isProd) {
-      console.log('Running in production mode, using installed Chrome');
-      puppeteerOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
+      let chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
+      console.log(`Running in production mode, using Chrome at path: ${chromePath}`);
+      
+      // Check if the Chrome executable exists
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(chromePath)) {
+          console.log(`Chrome executable found at ${chromePath}`);
+        } else {
+          console.log(`WARNING: Chrome executable NOT found at ${chromePath}`);
+          // Try to find Chrome in common locations
+          const possiblePaths = [
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable'
+          ];
+          
+          for (const path of possiblePaths) {
+            if (fs.existsSync(path)) {
+              console.log(`Found Chrome at alternative path: ${path}`);
+              chromePath = path;
+              break;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking Chrome path:', error);
+      }
+      
+      puppeteerOptions.executablePath = chromePath;
     }
     
     browser = await puppeteer.launch(puppeteerOptions);
