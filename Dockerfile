@@ -18,9 +18,9 @@ WORKDIR /app
 # Copy package.json, package-lock.json and .npmrc
 COPY package*.json .npmrc ./
 
-# Install app dependencies without using cache
-# Removed cache mount to avoid Railway build issues
-RUN npm ci --only=production
+# Install app dependencies using npm install instead of npm ci
+# This will generate a new package-lock.json that matches package.json
+RUN npm install --production
 
 # Bundle app source
 COPY . .
