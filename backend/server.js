@@ -860,7 +860,7 @@ app.get('/cookieupload', (req, res) => {
         margin: 0 auto;
         padding: 20px;
       }
-      h1 {
+      h1, h2 {
         color: #333;
       }
       textarea {
@@ -946,6 +946,26 @@ app.get('/cookieupload', (req, res) => {
       .show {
         display: block;
       }
+      .format-toggle {
+        margin-top: 10px;
+        margin-bottom: 20px;
+      }
+      .format-toggle button {
+        background-color: #f1f1f1;
+        color: #333;
+        padding: 5px 10px;
+        margin-right: 5px;
+      }
+      .format-toggle button.active {
+        background-color: #4CAF50;
+        color: white;
+      }
+      pre {
+        background-color: #f5f5f5;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
     </style>
   </head>
   <body>
@@ -953,30 +973,64 @@ app.get('/cookieupload', (req, res) => {
     
     <div class="info">
       <p>You can upload your Midasbuy cookies either by pasting JSON data or by uploading a cookies.json file.</p>
+      <p>We support multiple cookie formats from various browser extensions and developer tools.</p>
     </div>
     
     <div class="tab">
       <button class="tablinks active" onclick="openTab(event, 'PasteJSON')">Paste JSON</button>
       <button class="tablinks" onclick="openTab(event, 'UploadFile')">Upload File</button>
+      <button class="tablinks" onclick="openTab(event, 'Help')">Help</button>
     </div>
     
     <div id="PasteJSON" class="tabcontent show">
       <div class="info">
-        <p>Paste your Midasbuy cookies in JSON format below. The cookies should be in the format:</p>
-        <pre>[
+        <p>Paste your Midasbuy cookies in JSON format below.</p>
+        <div class="format-toggle">
+          <strong>Example Format:</strong>
+          <button onclick="showFormat('format1')" class="active" id="format1Btn">Standard Array</button>
+          <button onclick="showFormat('format2')" id="format2Btn">Name-Value Object</button>
+          <button onclick="showFormat('format3')" id="format3Btn">Browser Extension</button>
+        </div>
+        
+        <div id="format1" class="format-example">
+          <pre>[
   {
     "name": "cookie_name",
     "value": "cookie_value",
     "domain": ".midasbuy.com",
     "path": "/",
     "expires": -1,
-    "size": 123,
     "httpOnly": true,
-    "secure": true,
-    "session": false
+    "secure": true
   },
   ...
 ]</pre>
+        </div>
+        
+        <div id="format2" class="format-example" style="display:none;">
+          <pre>{
+  "cookie_name1": "cookie_value1",
+  "cookie_name2": "cookie_value2",
+  "cookie_name3": "cookie_value3"
+}</pre>
+        </div>
+        
+        <div id="format3" class="format-example" style="display:none;">
+          <pre>{
+  "cookies": {
+    "cookie_id_1": {
+      "name": "cookie_name",
+      "value": "cookie_value",
+      "domain": ".midasbuy.com"
+    },
+    "cookie_id_2": {
+      "name": "another_cookie",
+      "value": "another_value",
+      "domain": ".midasbuy.com"
+    }
+  }
+}</pre>
+        </div>
       </div>
       
       <form id="cookieForm" action="/cookieupload" method="post">
@@ -987,7 +1041,8 @@ app.get('/cookieupload', (req, res) => {
     
     <div id="UploadFile" class="tabcontent">
       <div class="info">
-        <p>Upload your cookies.json file. The file should contain a JSON array of cookie objects.</p>
+        <p>Upload your cookies.json file. The file should contain cookies in one of the supported formats.</p>
+        <p>You can export cookies using browser extensions like "EditThisCookie" or "Cookie-Editor".</p>
       </div>
       
       <form id="fileUploadForm" action="/cookieupload/file" method="post" enctype="multipart/form-data">
@@ -996,6 +1051,42 @@ app.get('/cookieupload', (req, res) => {
           <button type="submit">Upload File</button>
         </div>
       </form>
+    </div>
+    
+    <div id="Help" class="tabcontent">
+      <h2>How to Get Midasbuy Cookies</h2>
+      
+      <div class="info">
+        <h3>Method 1: Using Cookie-Editor Extension</h3>
+        <ol>
+          <li>Install the <a href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank">Cookie-Editor extension</a> for Chrome</li>
+          <li>Go to <a href="https://www.midasbuy.com" target="_blank">Midasbuy.com</a> and log in</li>
+          <li>Click on the Cookie-Editor extension icon</li>
+          <li>Click "Export" and select "JSON" format</li>
+          <li>Copy the exported JSON or save it as a file</li>
+          <li>Paste or upload the cookies here</li>
+        </ol>
+      </div>
+      
+      <div class="info">
+        <h3>Method 2: Using Browser Developer Tools</h3>
+        <ol>
+          <li>Go to <a href="https://www.midasbuy.com" target="_blank">Midasbuy.com</a> and log in</li>
+          <li>Open Developer Tools (F12 or right-click > Inspect)</li>
+          <li>Go to the "Application" tab (Chrome) or "Storage" tab (Firefox)</li>
+          <li>Find "Cookies" in the sidebar and click on "www.midasbuy.com"</li>
+          <li>You'll need to manually copy these cookies into a JSON format</li>
+        </ol>
+      </div>
+      
+      <div class="info">
+        <h3>Common Issues</h3>
+        <ul>
+          <li><strong>Invalid JSON format</strong>: Make sure your JSON is properly formatted without syntax errors</li>
+          <li><strong>Missing name/value</strong>: Each cookie must have at least a name and value property</li>
+          <li><strong>Wrong domain</strong>: Cookies should be for the .midasbuy.com domain</li>
+        </ul>
+      </div>
     </div>
     
     <div id="message"></div>
@@ -1014,6 +1105,19 @@ app.get('/cookieupload', (req, res) => {
         }
         document.getElementById(tabName).style.display = "block";
         evt.currentTarget.className += " active";
+      }
+      
+      // Format toggle functionality
+      function showFormat(formatId) {
+        document.getElementById('format1').style.display = 'none';
+        document.getElementById('format2').style.display = 'none';
+        document.getElementById('format3').style.display = 'none';
+        document.getElementById(formatId).style.display = 'block';
+        
+        document.getElementById('format1Btn').classList.remove('active');
+        document.getElementById('format2Btn').classList.remove('active');
+        document.getElementById('format3Btn').classList.remove('active');
+        document.getElementById(formatId + 'Btn').classList.add('active');
       }
       
       // JSON paste form submission
@@ -1039,7 +1143,7 @@ app.get('/cookieupload', (req, res) => {
           const messageDiv = document.getElementById('message');
           if (response.ok) {
             messageDiv.className = 'success';
-            messageDiv.textContent = 'Cookies uploaded successfully! The server will be restarted to apply the new cookies.';
+            messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server will be restarted to apply the new cookies.\`;
           } else {
             messageDiv.className = 'error';
             messageDiv.textContent = \`Error: \${result.error || 'Unknown error occurred'}\`;
@@ -1077,7 +1181,7 @@ app.get('/cookieupload', (req, res) => {
           const messageDiv = document.getElementById('message');
           if (response.ok) {
             messageDiv.className = 'success';
-            messageDiv.textContent = 'Cookies uploaded successfully! The server will be restarted to apply the new cookies.';
+            messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server will be restarted to apply the new cookies.\`;
           } else {
             messageDiv.className = 'error';
             messageDiv.textContent = \`Error: \${result.error || 'Unknown error occurred'}\`;
@@ -1113,20 +1217,14 @@ app.post('/cookieupload', express.json({ limit: '1mb' }), async (req, res) => {
       return res.status(400).json({ error: 'Invalid JSON format' });
     }
     
-    // Validate cookie format
-    if (!Array.isArray(cookieData)) {
-      return res.status(400).json({ error: 'Cookies must be an array' });
-    }
-    
-    // Check if cookies have required fields
-    for (const cookie of cookieData) {
-      if (!cookie.name || !cookie.value) {
-        return res.status(400).json({ error: 'Each cookie must have at least a name and value' });
-      }
+    // Process and normalize cookies
+    const processedCookies = processCookies(cookieData);
+    if (!processedCookies || processedCookies.length === 0) {
+      return res.status(400).json({ error: 'No valid cookies found in the provided data' });
     }
     
     // Save cookies to file
-    if (!saveCookies(cookieData)) {
+    if (!saveCookies(processedCookies)) {
       return res.status(500).json({ error: 'Failed to save cookies' });
     }
     
@@ -1134,7 +1232,11 @@ app.post('/cookieupload', express.json({ limit: '1mb' }), async (req, res) => {
     console.log('New cookies uploaded. Restarting browser...');
     await initBrowser();
     
-    return res.json({ success: true, message: 'Cookies uploaded successfully' });
+    return res.json({ 
+      success: true, 
+      message: 'Cookies uploaded successfully',
+      cookieCount: processedCookies.length
+    });
   } catch (error) {
     console.error('Error in cookie upload:', error);
     return res.status(500).json({ error: 'Server error while processing cookies' });
@@ -1163,23 +1265,17 @@ app.post('/cookieupload/file', upload.single('cookieFile'), async (req, res) => 
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
-      return res.status(400).json({ error: 'Invalid JSON file format' });
+      return res.status(400).json({ error: 'Invalid JSON file format: ' + e.message });
     }
     
-    // Validate cookie format
-    if (!Array.isArray(cookieData)) {
-      return res.status(400).json({ error: 'Cookies must be an array' });
-    }
-    
-    // Check if cookies have required fields
-    for (const cookie of cookieData) {
-      if (!cookie.name || !cookie.value) {
-        return res.status(400).json({ error: 'Each cookie must have at least a name and value' });
-      }
+    // Process and normalize cookies
+    const processedCookies = processCookies(cookieData);
+    if (!processedCookies || processedCookies.length === 0) {
+      return res.status(400).json({ error: 'No valid cookies found in the uploaded file' });
     }
     
     // Save cookies to file
-    if (!saveCookies(cookieData)) {
+    if (!saveCookies(processedCookies)) {
       return res.status(500).json({ error: 'Failed to save cookies' });
     }
     
@@ -1193,12 +1289,84 @@ app.post('/cookieupload/file', upload.single('cookieFile'), async (req, res) => 
     console.log('New cookies uploaded via file. Restarting browser...');
     await initBrowser();
     
-    return res.json({ success: true, message: 'Cookies uploaded successfully from file' });
+    return res.json({ 
+      success: true, 
+      message: 'Cookies uploaded successfully from file',
+      cookieCount: processedCookies.length
+    });
   } catch (error) {
     console.error('Error in cookie file upload:', error);
-    return res.status(500).json({ error: 'Server error while processing cookie file' });
+    return res.status(500).json({ error: 'Server error while processing cookie file: ' + error.message });
   }
 });
+
+// Helper function to process and normalize cookies from various formats
+function processCookies(cookieData) {
+  // If it's not an array or object, return empty array
+  if (typeof cookieData !== 'object') {
+    return [];
+  }
+  
+  // Handle different cookie formats
+  let processedCookies = [];
+  
+  // Case 1: Array of cookie objects (standard format)
+  if (Array.isArray(cookieData)) {
+    processedCookies = cookieData.map(cookie => {
+      // Ensure each cookie has at least name and value
+      if (typeof cookie === 'object' && cookie !== null) {
+        return {
+          name: cookie.name || '',
+          value: cookie.value || '',
+          domain: cookie.domain || '.midasbuy.com',
+          path: cookie.path || '/',
+          expires: cookie.expires || -1,
+          httpOnly: cookie.httpOnly || false,
+          secure: cookie.secure || false,
+          session: cookie.session || false
+        };
+      }
+      return null;
+    }).filter(cookie => cookie && cookie.name && cookie.value);
+  }
+  // Case 2: Object with cookie names as keys (common browser extension format)
+  else if (!Array.isArray(cookieData) && cookieData !== null) {
+    // Check if it has cookies property (some extensions nest under this)
+    const cookiesObj = cookieData.cookies || cookieData;
+    
+    // Convert object to array of cookie objects
+    for (const [key, value] of Object.entries(cookiesObj)) {
+      if (typeof value === 'object' && value !== null) {
+        // Format where object properties are cookie objects
+        processedCookies.push({
+          name: value.name || key,
+          value: value.value || '',
+          domain: value.domain || '.midasbuy.com',
+          path: value.path || '/',
+          expires: value.expires || -1,
+          httpOnly: value.httpOnly || false,
+          secure: value.secure || false,
+          session: value.session || false
+        });
+      } else if (typeof value === 'string') {
+        // Format where object keys are cookie names and values are cookie values
+        processedCookies.push({
+          name: key,
+          value: value,
+          domain: '.midasbuy.com',
+          path: '/',
+          expires: -1,
+          httpOnly: false,
+          secure: true,
+          session: false
+        });
+      }
+    }
+  }
+  
+  // Filter out any cookies without name and value
+  return processedCookies.filter(cookie => cookie && cookie.name && cookie.value);
+}
 
 // Initialize browser when server starts
 app.listen(PORT, async () => {
