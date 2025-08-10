@@ -51,7 +51,13 @@ const SUPPORTED_GAMES = {
 // Load cookies from file
 const loadCookies = () => {
   try {
-    const cookiesPath = path.join(__dirname, '..', 'cookies.json');
+    // Try to load from root directory first (for Docker)
+    let cookiesPath = path.join(__dirname, '..', 'cookies.json');
+    if (!fs.existsSync(cookiesPath)) {
+      // Try alternative path (for local development)
+      cookiesPath = path.join(__dirname, 'cookies.json');
+    }
+    
     if (fs.existsSync(cookiesPath)) {
       const cookiesData = fs.readFileSync(cookiesPath, 'utf8');
       return JSON.parse(cookiesData);
@@ -80,7 +86,13 @@ const loadCookies = () => {
 // Save cookies to file
 const saveCookies = (cookies) => {
   try {
-    const cookiesPath = path.join(__dirname, '..', 'cookies.json');
+    // Try to save to root directory first (for Docker)
+    let cookiesPath = path.join(__dirname, '..', 'cookies.json');
+    if (!fs.existsSync(path.dirname(cookiesPath))) {
+      // Use alternative path (for local development)
+      cookiesPath = path.join(__dirname, 'cookies.json');
+    }
+    
     fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2), 'utf8');
     return true;
   } catch (error) {
@@ -179,7 +191,7 @@ async function initBrowser() {
     }
     
     browser = await puppeteer.launch({
-      headless: "new",
+      headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
