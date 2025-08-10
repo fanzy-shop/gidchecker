@@ -131,6 +131,8 @@ async function initBrowser() {
     
     // For Render.com deployment
     const isProd = process.env.NODE_ENV === 'production';
+    const isWindows = process.platform === 'win32';
+    
     const puppeteerOptions = {
       headless: "new", // Hide browser for production
       args: [
@@ -159,14 +161,25 @@ async function initBrowser() {
       defaultViewport: { width: 1366, height: 768 }
     };
     
-    // On Render.com, use the installed Chrome path
-    if (isProd) {
+    // Use different Chrome paths based on platform
+    if (isWindows) {
+      // Use bundled Chrome on Windows
+      const localChromePath = path.join(__dirname, 'chrome-win64', 'chrome.exe');
+      console.log(`Running on Windows, using local Chrome at: ${localChromePath}`);
+      
+      if (fs.existsSync(localChromePath)) {
+        console.log(`Local Chrome executable found at ${localChromePath}`);
+        puppeteerOptions.executablePath = localChromePath;
+      } else {
+        console.log(`WARNING: Local Chrome not found at ${localChromePath}`);
+      }
+    } else if (isProd) {
+      // On Linux/Render.com, use the installed Chrome path
       let chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable';
       console.log(`Running in production mode, using Chrome at path: ${chromePath}`);
       
       // Check if the Chrome executable exists
       try {
-        const fs = require('fs');
         if (fs.existsSync(chromePath)) {
           console.log(`Chrome executable found at ${chromePath}`);
         } else {
