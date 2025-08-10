@@ -18,10 +18,9 @@ WORKDIR /app
 # Copy package.json, package-lock.json and .npmrc
 COPY package*.json .npmrc ./
 
-# Install app dependencies using package-lock.json
-# Modified to use Railway's required cache mount format
-RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-    npm ci --only=production
+# Install app dependencies without using cache
+# Removed cache mount to avoid Railway build issues
+RUN npm ci --only=production
 
 # Bundle app source
 COPY . .
