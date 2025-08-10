@@ -859,9 +859,13 @@ app.get('/cookieupload', (req, res) => {
         max-width: 800px;
         margin: 0 auto;
         padding: 20px;
-      }
-      h1, h2 {
+        background-color: #f9f9f9;
         color: #333;
+        transition: all 0.3s ease;
+      }
+      h1, h2, h3 {
+        color: #333;
+        transition: color 0.3s ease;
       }
       textarea {
         width: 100%;
@@ -871,6 +875,12 @@ app.get('/cookieupload', (req, res) => {
         font-family: monospace;
         border: 1px solid #ddd;
         border-radius: 4px;
+        transition: border 0.3s ease, box-shadow 0.3s ease;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #4CAF50;
+        box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
       }
       button {
         background-color: #4CAF50;
@@ -881,15 +891,25 @@ app.get('/cookieupload', (req, res) => {
         cursor: pointer;
         font-size: 16px;
         margin-right: 10px;
+        transition: background-color 0.3s ease, transform 0.1s ease;
       }
       button:hover {
         background-color: #45a049;
+      }
+      button:active {
+        transform: scale(0.98);
       }
       .info {
         background-color: #f8f9fa;
         padding: 15px;
         border-left: 4px solid #17a2b8;
         margin: 20px 0;
+        border-radius: 0 4px 4px 0;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       }
       .success {
         background-color: #d4edda;
@@ -897,6 +917,8 @@ app.get('/cookieupload', (req, res) => {
         padding: 15px;
         border-radius: 4px;
         margin-top: 15px;
+        animation: fadeIn 0.5s ease;
+        border-left: 4px solid #155724;
       }
       .error {
         background-color: #f8d7da;
@@ -904,12 +926,15 @@ app.get('/cookieupload', (req, res) => {
         padding: 15px;
         border-radius: 4px;
         margin-top: 15px;
+        animation: fadeIn 0.5s ease;
+        border-left: 4px solid #721c24;
       }
       .tab {
         overflow: hidden;
         border: 1px solid #ccc;
         background-color: #f1f1f1;
         border-radius: 4px 4px 0 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
       }
       .tab button {
         background-color: inherit;
@@ -922,6 +947,7 @@ app.get('/cookieupload', (req, res) => {
         font-size: 16px;
         color: #333;
         margin: 0;
+        position: relative;
       }
       .tab button:hover {
         background-color: #ddd;
@@ -930,12 +956,24 @@ app.get('/cookieupload', (req, res) => {
         background-color: #4CAF50;
         color: white;
       }
+      .tab button.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background-color: #2e7d32;
+      }
       .tabcontent {
         display: none;
         padding: 20px;
         border: 1px solid #ccc;
         border-top: none;
         border-radius: 0 0 4px 4px;
+        animation: fadeIn 0.5s ease;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
       }
       .file-input-container {
         margin: 20px 0;
@@ -955,6 +993,7 @@ app.get('/cookieupload', (req, res) => {
         color: #333;
         padding: 5px 10px;
         margin-right: 5px;
+        transition: all 0.3s ease;
       }
       .format-toggle button.active {
         background-color: #4CAF50;
@@ -965,35 +1004,153 @@ app.get('/cookieupload', (req, res) => {
         padding: 10px;
         border-radius: 4px;
         overflow-x: auto;
+        border-left: 3px solid #4CAF50;
+        transition: transform 0.3s ease;
+      }
+      pre:hover {
+        transform: translateX(3px);
+      }
+      .custom-file-input {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+        margin-bottom: 15px;
+      }
+      .custom-file-input input {
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        z-index: 10;
+      }
+      .custom-file-label {
+        display: block;
+        padding: 10px 15px;
+        background-color: #f8f9fa;
+        border: 1px dashed #ccc;
+        border-radius: 4px;
+        text-align: center;
+        color: #666;
+        transition: all 0.3s ease;
+      }
+      .custom-file-input:hover .custom-file-label {
+        border-color: #4CAF50;
+        background-color: #e8f5e9;
+      }
+      .file-name {
+        margin-top: 5px;
+        font-size: 14px;
+        color: #4CAF50;
+        display: none;
+      }
+      .loader-container {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }
+      .loader {
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #4CAF50;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+      }
+      .loader-text {
+        margin-top: 15px;
+        font-weight: bold;
+        color: #4CAF50;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+      }
+      .card:hover {
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        transform: translateY(-3px);
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .header h1 {
+        margin-bottom: 10px;
+        color: #2e7d32;
+      }
+      .header p {
+        color: #666;
+        font-size: 16px;
+      }
+      .back-to-home {
+        display: inline-block;
+        margin-top: 20px;
+        color: #4CAF50;
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+      .back-to-home:hover {
+        color: #2e7d32;
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
-    <h1>Upload Midasbuy Cookies</h1>
-    
-    <div class="info">
-      <p>You can upload your Midasbuy cookies either by pasting JSON data or by uploading a cookies.json file.</p>
-      <p>We support multiple cookie formats from various browser extensions and developer tools.</p>
+    <div class="loader-container">
+      <div class="loader"></div>
+      <div class="loader-text">Processing cookies...</div>
     </div>
     
-    <div class="tab">
-      <button class="tablinks active" onclick="openTab(event, 'PasteJSON')">Paste JSON</button>
-      <button class="tablinks" onclick="openTab(event, 'UploadFile')">Upload File</button>
-      <button class="tablinks" onclick="openTab(event, 'Help')">Help</button>
+    <div class="header">
+      <h1>Upload Midasbuy Cookies</h1>
+      <p>Authenticate your API requests by uploading your Midasbuy cookies</p>
     </div>
     
-    <div id="PasteJSON" class="tabcontent show">
+    <div class="card">
       <div class="info">
-        <p>Paste your Midasbuy cookies in JSON format below.</p>
-        <div class="format-toggle">
-          <strong>Example Format:</strong>
-          <button onclick="showFormat('format1')" class="active" id="format1Btn">Standard Array</button>
-          <button onclick="showFormat('format2')" id="format2Btn">Name-Value Object</button>
-          <button onclick="showFormat('format3')" id="format3Btn">Browser Extension</button>
-        </div>
-        
-        <div id="format1" class="format-example">
-          <pre>[
+        <p>You can upload your Midasbuy cookies either by pasting JSON data or by uploading a cookies.json file.</p>
+        <p>We support multiple cookie formats from various browser extensions and developer tools.</p>
+      </div>
+      
+      <div class="tab">
+        <button class="tablinks active" onclick="openTab(event, 'PasteJSON')">Paste JSON</button>
+        <button class="tablinks" onclick="openTab(event, 'UploadFile')">Upload File</button>
+        <button class="tablinks" onclick="openTab(event, 'Help')">Help</button>
+      </div>
+      
+      <div id="PasteJSON" class="tabcontent show">
+        <div class="info">
+          <p>Paste your Midasbuy cookies in JSON format below.</p>
+          <div class="format-toggle">
+            <strong>Example Format:</strong>
+            <button onclick="showFormat('format1')" class="active" id="format1Btn">Standard Array</button>
+            <button onclick="showFormat('format2')" id="format2Btn">Name-Value Object</button>
+            <button onclick="showFormat('format3')" id="format3Btn">Browser Extension</button>
+          </div>
+          
+          <div id="format1" class="format-example">
+            <pre>[
   {
     "name": "cookie_name",
     "value": "cookie_value",
@@ -1005,18 +1162,18 @@ app.get('/cookieupload', (req, res) => {
   },
   ...
 ]</pre>
-        </div>
-        
-        <div id="format2" class="format-example" style="display:none;">
-          <pre>{
+          </div>
+          
+          <div id="format2" class="format-example" style="display:none;">
+            <pre>{
   "cookie_name1": "cookie_value1",
   "cookie_name2": "cookie_value2",
   "cookie_name3": "cookie_value3"
 }</pre>
-        </div>
-        
-        <div id="format3" class="format-example" style="display:none;">
-          <pre>{
+          </div>
+          
+          <div id="format3" class="format-example" style="display:none;">
+            <pre>{
   "cookies": {
     "cookie_id_1": {
       "name": "cookie_name",
@@ -1030,66 +1187,75 @@ app.get('/cookieupload', (req, res) => {
     }
   }
 }</pre>
+          </div>
         </div>
+        
+        <form id="cookieForm" action="/cookieupload" method="post">
+          <textarea id="cookieData" name="cookieData" placeholder="Paste your cookies here in JSON format"></textarea>
+          <button type="submit">Upload Cookies</button>
+        </form>
       </div>
       
-      <form id="cookieForm" action="/cookieupload" method="post">
-        <textarea id="cookieData" name="cookieData" placeholder="Paste your cookies here in JSON format"></textarea>
-        <button type="submit">Upload Cookies</button>
-      </form>
-    </div>
-    
-    <div id="UploadFile" class="tabcontent">
-      <div class="info">
-        <p>Upload your cookies.json file. The file should contain cookies in one of the supported formats.</p>
-        <p>You can export cookies using browser extensions like "EditThisCookie" or "Cookie-Editor".</p>
-      </div>
-      
-      <form id="fileUploadForm" action="/cookieupload/file" method="post" enctype="multipart/form-data">
-        <div class="file-input-container">
-          <input type="file" id="cookieFile" name="cookieFile" accept=".json">
-          <button type="submit">Upload File</button>
+      <div id="UploadFile" class="tabcontent">
+        <div class="info">
+          <p>Upload your cookies.json file. The file should contain cookies in one of the supported formats.</p>
+          <p>You can export cookies using browser extensions like "EditThisCookie" or "Cookie-Editor".</p>
         </div>
-      </form>
-    </div>
-    
-    <div id="Help" class="tabcontent">
-      <h2>How to Get Midasbuy Cookies</h2>
-      
-      <div class="info">
-        <h3>Method 1: Using Cookie-Editor Extension</h3>
-        <ol>
-          <li>Install the <a href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank">Cookie-Editor extension</a> for Chrome</li>
-          <li>Go to <a href="https://www.midasbuy.com" target="_blank">Midasbuy.com</a> and log in</li>
-          <li>Click on the Cookie-Editor extension icon</li>
-          <li>Click "Export" and select "JSON" format</li>
-          <li>Copy the exported JSON or save it as a file</li>
-          <li>Paste or upload the cookies here</li>
-        </ol>
+        
+        <form id="fileUploadForm" action="/cookieupload/file" method="post" enctype="multipart/form-data">
+          <div class="file-input-container">
+            <div class="custom-file-input">
+              <input type="file" id="cookieFile" name="cookieFile" accept=".json">
+              <div class="custom-file-label">
+                <span>Choose file or drag & drop</span>
+              </div>
+            </div>
+            <div class="file-name" id="fileName"></div>
+            <button type="submit">Upload File</button>
+          </div>
+        </form>
       </div>
       
-      <div class="info">
-        <h3>Method 2: Using Browser Developer Tools</h3>
-        <ol>
-          <li>Go to <a href="https://www.midasbuy.com" target="_blank">Midasbuy.com</a> and log in</li>
-          <li>Open Developer Tools (F12 or right-click > Inspect)</li>
-          <li>Go to the "Application" tab (Chrome) or "Storage" tab (Firefox)</li>
-          <li>Find "Cookies" in the sidebar and click on "www.midasbuy.com"</li>
-          <li>You'll need to manually copy these cookies into a JSON format</li>
-        </ol>
-      </div>
-      
-      <div class="info">
-        <h3>Common Issues</h3>
-        <ul>
-          <li><strong>Invalid JSON format</strong>: Make sure your JSON is properly formatted without syntax errors</li>
-          <li><strong>Missing name/value</strong>: Each cookie must have at least a name and value property</li>
-          <li><strong>Wrong domain</strong>: Cookies should be for the .midasbuy.com domain</li>
-        </ul>
+      <div id="Help" class="tabcontent">
+        <h2>How to Get Midasbuy Cookies</h2>
+        
+        <div class="info">
+          <h3>Method 1: Using Cookie-Editor Extension</h3>
+          <ol>
+            <li>Install the <a href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank">Cookie-Editor extension</a> for Chrome</li>
+            <li>Go to <a href="https://www.midasbuy.com" target="_blank">Midasbuy.com</a> and log in</li>
+            <li>Click on the Cookie-Editor extension icon</li>
+            <li>Click "Export" and select "JSON" format</li>
+            <li>Copy the exported JSON or save it as a file</li>
+            <li>Paste or upload the cookies here</li>
+          </ol>
+        </div>
+        
+        <div class="info">
+          <h3>Method 2: Using Browser Developer Tools</h3>
+          <ol>
+            <li>Go to <a href="https://www.midasbuy.com" target="_blank">Midasbuy.com</a> and log in</li>
+            <li>Open Developer Tools (F12 or right-click > Inspect)</li>
+            <li>Go to the "Application" tab (Chrome) or "Storage" tab (Firefox)</li>
+            <li>Find "Cookies" in the sidebar and click on "www.midasbuy.com"</li>
+            <li>You'll need to manually copy these cookies into a JSON format</li>
+          </ol>
+        </div>
+        
+        <div class="info">
+          <h3>Common Issues</h3>
+          <ul>
+            <li><strong>Invalid JSON format</strong>: Make sure your JSON is properly formatted without syntax errors</li>
+            <li><strong>Missing name/value</strong>: Each cookie must have at least a name and value property</li>
+            <li><strong>Wrong domain</strong>: Cookies should be for the .midasbuy.com domain</li>
+          </ul>
+        </div>
       </div>
     </div>
     
     <div id="message"></div>
+    
+    <a href="/" class="back-to-home">← Back to Home</a>
     
     <script>
       // Tab functionality
@@ -1120,6 +1286,74 @@ app.get('/cookieupload', (req, res) => {
         document.getElementById(formatId + 'Btn').classList.add('active');
       }
       
+      // Show loader function
+      function showLoader() {
+        document.querySelector('.loader-container').style.display = 'flex';
+      }
+      
+      // Hide loader function
+      function hideLoader() {
+        document.querySelector('.loader-container').style.display = 'none';
+      }
+      
+      // File input enhancement
+      document.getElementById('cookieFile').addEventListener('change', function(e) {
+        const fileName = e.target.files[0] ? e.target.files[0].name : '';
+        if (fileName) {
+          document.getElementById('fileName').textContent = 'Selected file: ' + fileName;
+          document.getElementById('fileName').style.display = 'block';
+          document.querySelector('.custom-file-label span').textContent = 'File selected';
+        } else {
+          document.getElementById('fileName').style.display = 'none';
+          document.querySelector('.custom-file-label span').textContent = 'Choose file or drag & drop';
+        }
+      });
+      
+      // Drag and drop functionality
+      const dropArea = document.querySelector('.custom-file-input');
+      
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+      });
+      
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+      
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+      
+      function highlight() {
+        dropArea.querySelector('.custom-file-label').style.borderColor = '#4CAF50';
+        dropArea.querySelector('.custom-file-label').style.backgroundColor = '#e8f5e9';
+      }
+      
+      function unhighlight() {
+        dropArea.querySelector('.custom-file-label').style.borderColor = '#ccc';
+        dropArea.querySelector('.custom-file-label').style.backgroundColor = '#f8f9fa';
+      }
+      
+      dropArea.addEventListener('drop', handleDrop, false);
+      
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        document.getElementById('cookieFile').files = files;
+        
+        const fileName = files[0] ? files[0].name : '';
+        if (fileName) {
+          document.getElementById('fileName').textContent = 'Selected file: ' + fileName;
+          document.getElementById('fileName').style.display = 'block';
+          document.querySelector('.custom-file-label span').textContent = 'File selected';
+        }
+      }
+      
       // JSON paste form submission
       document.getElementById('cookieForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -1129,6 +1363,9 @@ app.get('/cookieupload', (req, res) => {
         try {
           // Validate JSON
           JSON.parse(cookieData);
+          
+          // Show loader
+          showLoader();
           
           const response = await fetch('/cookieupload', {
             method: 'POST',
@@ -1140,18 +1377,30 @@ app.get('/cookieupload', (req, res) => {
           
           const result = await response.json();
           
+          // Hide loader
+          hideLoader();
+          
           const messageDiv = document.getElementById('message');
           if (response.ok) {
             messageDiv.className = 'success';
             messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server will be restarted to apply the new cookies.\`;
+            
+            // Clear the textarea after successful upload
+            document.getElementById('cookieData').value = '';
           } else {
             messageDiv.className = 'error';
             messageDiv.textContent = \`Error: \${result.error || 'Unknown error occurred'}\`;
           }
+          
+          // Scroll to message
+          messageDiv.scrollIntoView({ behavior: 'smooth' });
         } catch (error) {
           const messageDiv = document.getElementById('message');
           messageDiv.className = 'error';
           messageDiv.textContent = 'Invalid JSON format. Please check your cookie data.';
+          
+          // Scroll to message
+          messageDiv.scrollIntoView({ behavior: 'smooth' });
         }
       });
       
@@ -1164,8 +1413,14 @@ app.get('/cookieupload', (req, res) => {
           const messageDiv = document.getElementById('message');
           messageDiv.className = 'error';
           messageDiv.textContent = 'Please select a file to upload.';
+          
+          // Scroll to message
+          messageDiv.scrollIntoView({ behavior: 'smooth' });
           return;
         }
+        
+        // Show loader
+        showLoader();
         
         const formData = new FormData();
         formData.append('cookieFile', fileInput.files[0]);
@@ -1178,18 +1433,35 @@ app.get('/cookieupload', (req, res) => {
           
           const result = await response.json();
           
+          // Hide loader
+          hideLoader();
+          
           const messageDiv = document.getElementById('message');
           if (response.ok) {
             messageDiv.className = 'success';
             messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server will be restarted to apply the new cookies.\`;
+            
+            // Reset file input
+            fileInput.value = '';
+            document.getElementById('fileName').style.display = 'none';
+            document.querySelector('.custom-file-label span').textContent = 'Choose file or drag & drop';
           } else {
             messageDiv.className = 'error';
             messageDiv.textContent = \`Error: \${result.error || 'Unknown error occurred'}\`;
           }
+          
+          // Scroll to message
+          messageDiv.scrollIntoView({ behavior: 'smooth' });
         } catch (error) {
+          // Hide loader
+          hideLoader();
+          
           const messageDiv = document.getElementById('message');
           messageDiv.className = 'error';
           messageDiv.textContent = 'Error uploading file. Please try again.';
+          
+          // Scroll to message
+          messageDiv.scrollIntoView({ behavior: 'smooth' });
         }
       });
     </script>
