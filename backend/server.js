@@ -227,7 +227,8 @@ async function initBrowser() {
         '--disable-accelerated-2d-canvas',
         '--disable-gpu',
         '--disable-sync',
-        '--disable-translate'
+        '--disable-translate',
+        '--no-zygote' // Added for stability in containerized environments
       ],
       defaultViewport: { width: 1366, height: 768 }
     };
@@ -473,6 +474,8 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
   const { gameId, playerId } = req.params;
   const requestId = generateRequestId();
   
+  logWithTiming(`[START] Received request for game: ${gameId}, player: ${playerId}`, null, requestId);
+
   // Check if the game is supported
   if (!SUPPORTED_GAMES[gameId]) {
     return res.status(400).json({ 
@@ -487,56 +490,64 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
     return res.status(400).json({ error: 'Player ID is required' });
   }
   
-  // Ensure we don't overwhelm the site with requests
-  const now = Date.now();
-  if (now - lastRequestTime < 100) {
-    await delay(100 - (now - lastRequestTime));
-  }
-  lastRequestTime = Date.now();
-  
   // Track this request
   activeRequests.set(requestId, { gameId, playerId, startTime });
   
-  // Get a page for this request
   let page = null;
   
+  // Set a global timeout for the entire request
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      logWithTiming(`[TIMEOUT] Request for player ${playerId} timed out after 45 seconds`, null, requestId);
+      res.status(504).json({
+        error: 'Request timed out after 45 seconds. The server may be under high load or the target site is slow.',
+        game: gameId,
+        id: playerId,
+        during: msToSeconds(Date.now() - startTime)
+      });
+    }
+    activeRequests.delete(requestId);
+    if (page) {
+      // Close the page instead of releasing it to the pool, as it might be in a bad state
+      page.close().catch(e => console.error(`[${requestId}] Error closing timed-out page:`, e));
+    }
+  }, 45000); // 45-second timeout
+
   try {
-    // Initialize browser if not already done
+    logWithTiming(`[BROWSER] Checking browser health...`, null, requestId);
     if (!browser || !(await isBrowserHealthy())) {
+      logWithTiming(`[BROWSER] Browser unhealthy or not initialized. Re-initializing...`, null, requestId);
       await initBrowser();
       if (!browser) {
-        return res.status(500).json({ error: 'Failed to initialize browser' });
+        throw new Error('Failed to initialize browser');
       }
     }
     
-    // Get a page from the pool or create a new one
+    logWithTiming(`[POOL] Getting page from pool for game ${gameId}...`, null, requestId);
     page = await getPage(gameId);
-    
-    // Bring the page to front to ensure it's active
+    logWithTiming(`[PAGE] Got page. Bringing to front...`, null, requestId);
     await bringToFront(page);
     
-    // Try to find and click the switch icon with multiple approaches
     let switchIconClicked = false;
     
-    // Approach 1: Standard selector
+    logWithTiming(`[ACTION] Trying to click switch icon (Approach 1: Standard)...`, null, requestId);
     try {
       await page.waitForSelector(gameConfig.selectors.switchIcon, { timeout: 5000, visible: true });
       await page.click(gameConfig.selectors.switchIcon);
-      logWithTiming("Clicked switch icon (standard selector)", 0.2, requestId);
+      logWithTiming(`[SUCCESS] Clicked switch icon (standard selector)`, null, requestId);
       switchIconClicked = true;
     } catch (error) {
-      logWithTiming('Switch icon not found with standard selector, trying alternative approaches...', null, requestId);
+      logWithTiming(`[INFO] Switch icon not found with standard selector. Trying next approach.`, null, requestId);
     }
     
-    // Approach 2: If not found, reload and try with JavaScript
     if (!switchIconClicked) {
+      logWithTiming(`[ACTION] Trying to click switch icon (Approach 2: Reload & JS)...`, null, requestId);
       try {
-        logWithTiming('Reloading page...', null, requestId);
+        logWithTiming(`[PAGE] Reloading page...`, null, requestId);
         await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
         await delay(2000);
         await bringToFront(page);
         
-        // Try clicking with JavaScript
         const clickResult = await page.evaluate((selector) => {
           const elements = document.querySelectorAll('i.icon');
           for (const el of elements) {
@@ -557,44 +568,28 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
         }, gameConfig.selectors.switchIcon);
         
         if (clickResult) {
-          logWithTiming("Clicked switch icon (JavaScript method)", 0.2, requestId);
+          logWithTiming(`[SUCCESS] Clicked switch icon (JavaScript method)`, null, requestId);
           switchIconClicked = true;
         }
       } catch (error) {
-        logWithTiming('Error during page reload and JavaScript click', null, requestId);
+        logWithTiming(`[INFO] Error during reload and JS click. Trying next approach.`, null, requestId);
       }
     }
     
-    // Approach 3: Last resort - try to find the input field directly
     if (!switchIconClicked) {
+      logWithTiming(`[ACTION] Trying to find input field directly (Approach 3)...`, null, requestId);
       try {
-        // Try to find the input field directly
         await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
-        logWithTiming("Switch icon not needed, input field found directly", 0.2, requestId);
-        switchIconClicked = true; // Not actually clicked but we can proceed
+        logWithTiming(`[SUCCESS] Input field found directly. Switch icon not needed.`, null, requestId);
       } catch (inputError) {
-        return res.status(500).json({ 
-          error: 'Could not find player ID input field',
-          game: gameId,
-          id: playerId,
-          during: msToSeconds(Date.now() - startTime)
-        });
+        throw new Error('Could not find player ID input field after all attempts.');
       }
     }
     
-    // Wait for the player ID input field
-    logWithTiming("Waiting for input field...", 0.2, requestId);
-    try {
-      await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
-    } catch (error) {
-      logWithTiming('Input field not found after switch icon click, trying one more reload...', null, requestId);
-      await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
-      await delay(2000);
-      await bringToFront(page);
-      await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
-    }
+    logWithTiming(`[ACTION] Waiting for player ID input field...`, null, requestId);
+    await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
     
-    // First click the clear button if it exists and is visible
+    logWithTiming(`[ACTION] Clearing input field...`, null, requestId);
     await page.evaluate((selector) => {
       const clearBtn = document.querySelector(selector);
       if (clearBtn && window.getComputedStyle(clearBtn).display !== 'none') {
@@ -602,20 +597,17 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
       }
     }, gameConfig.selectors.clearButton);
     
-    // Type the player ID with faster typing
-    logWithTiming(`Typing player ID: ${playerId}`, 0.5, requestId);
+    logWithTiming(`[ACTION] Typing player ID: ${playerId}`, null, requestId);
     await typeHumanLike(page, gameConfig.selectors.inputField, playerId, requestId);
     
-    // Click the confirm button
-    logWithTiming("Clicking confirm button", 0.5, requestId);
+    logWithTiming(`[ACTION] Clicking confirm button...`, null, requestId);
     await page.waitForSelector(gameConfig.selectors.confirmButton, { timeout: 8000, visible: true });
     await page.click(gameConfig.selectors.confirmButton);
     
-    // Wait for the player name to appear or error message
-    logWithTiming("Waiting for response...", null, requestId);
-    await delay(1500); // Increased delay for more reliable response detection
+    logWithTiming(`[WAIT] Waiting for response after confirm click...`, null, requestId);
+    await delay(1500); 
     
-    // Check for invalid game ID message
+    logWithTiming(`[CHECK] Checking for invalid ID message...`, null, requestId);
     const isInvalidId = await page.evaluate((errorSelector, errorText) => {
       // Check for the error text div that's currently visible
       const errorElement = document.querySelector(errorSelector);
@@ -629,24 +621,19 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
     }, gameConfig.selectors.errorMessage, gameConfig.errorText);
     
     if (isInvalidId) {
-      logWithTiming(`Invalid Game ID: ${playerId}`, null, requestId);
-      const durationSec = msToSeconds(Date.now() - startTime);
-      
-      // Return page to the pool
+      logWithTiming(`[RESULT] Invalid Game ID found for: ${playerId}`, null, requestId);
+      clearTimeout(timeoutId);
       releasePage(page, gameId).catch(() => {});
-      
-      // Remove from active requests
       activeRequests.delete(requestId);
-      
       return res.status(400).json({
         error: 'Invalid Game ID',
         game: gameId,
         id: playerId,
-        during: durationSec
+        during: msToSeconds(Date.now() - startTime)
       });
     }
     
-    // Wait for player name element with increased timeout
+    logWithTiming(`[CHECK] Checking for player name...`, null, requestId);
     const playerInfo = await page.evaluate((nameSelector) => {
       // First check if there's a player name
       const nameElement = document.querySelector(nameSelector);
@@ -659,54 +646,44 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
       return { found: false };
     }, gameConfig.selectors.playerName);
     
-    // Calculate duration in seconds
-    const durationMs = Date.now() - startTime;
-    const durationSec = msToSeconds(durationMs);
-    
-    // Return page to the pool
+    clearTimeout(timeoutId);
     releasePage(page, gameId).catch(() => {});
-    
-    // Remove from active requests
     activeRequests.delete(requestId);
     
     if (!playerInfo.found) {
-      logWithTiming(`Player not found: ${playerId}`, null, requestId);
+      logWithTiming(`[RESULT] Player not found for: ${playerId}`, null, requestId);
       return res.status(404).json({ 
         error: 'Player not found',
         game: gameId,
         id: playerId,
-        during: durationSec
+        during: msToSeconds(Date.now() - startTime)
       });
     }
     
-    logWithTiming(`Success: ID ${playerId} -> ${playerInfo.name} (${durationSec}s)`, null, requestId);
+    logWithTiming(`[SUCCESS] Found player: ${playerInfo.name}`, null, requestId);
     return res.json({
       game: gameId,
       id: playerId,
       name: playerInfo.name,
-      during: durationSec
+      during: msToSeconds(Date.now() - startTime)
     });
     
   } catch (error) {
-    console.error(`[${requestId}] Error checking player ID ${playerId}:`, error);
+    clearTimeout(timeoutId);
+    logWithTiming(`[ERROR] Unhandled error for player ${playerId}: ${error.message}`, null, requestId);
     
-    // Calculate duration even for errors
-    const durationMs = Date.now() - startTime;
-    const durationSec = msToSeconds(durationMs);
-    
-    // Close the page on error instead of returning to pool
     if (page) {
       await page.close().catch(() => {});
     }
     
-    // Remove from active requests
     activeRequests.delete(requestId);
     
     return res.status(500).json({ 
-      error: 'Failed to check player ID',
+      error: 'Failed to check player ID due to an unexpected error',
+      details: error.message,
       game: gameId,
       id: playerId,
-      during: durationSec
+      during: msToSeconds(Date.now() - startTime)
     });
   }
 });
