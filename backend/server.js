@@ -288,24 +288,19 @@ async function initPagePool(gameId, count) {
       return;
     }
     
-    // Create pages in parallel for faster initialization
-    const promises = [];
-    for (let i = 0; i < createCount; i++) {
-      promises.push(createPreloadedPage(gameId));
-    }
-    
-    // Use Promise.allSettled to handle individual page creation failures
-    const results = await Promise.allSettled(promises);
+    console.log(`Sequentially initializing ${createCount} pages for game ${gameId}...`);
     
     let successfulCreations = 0;
-    results.forEach(result => {
-      if (result.status === 'fulfilled' && result.value) {
-        gamePool.push(result.value);
+    for (let i = 0; i < createCount; i++) {
+      try {
+        console.log(`Creating page ${i + 1} of ${createCount} for ${gameId}...`);
+        const page = await createPreloadedPage(gameId);
+        gamePool.push(page);
         successfulCreations++;
-      } else if (result.status === 'rejected') {
-        console.error(`Failed to create a page for game ${gameId}:`, result.reason.message);
+      } catch (error) {
+        console.error(`Failed to create page ${i + 1} for game ${gameId}:`, error.message);
       }
-    });
+    }
     
     if (successfulCreations > 0) {
         console.log(`Successfully initialized ${successfulCreations} of ${createCount} pages for game ${gameId}. Total in pool: ${gamePool.length}`);
