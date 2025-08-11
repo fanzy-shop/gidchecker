@@ -125,7 +125,7 @@ let isInitializing = false;
 let lastRequestTime = 0;
 const activeRequests = new Map(); // Track active requests
 const pagePool = new Map(); // Pool of pre-initialized pages by game
-const MAX_POOL_SIZE = 10; // Maximum number of pages to keep in the pool per game
+const MAX_POOL_SIZE = 2; // Maximum number of pages to keep in the pool per game
 const INITIAL_POOL_SIZE = 5; // Initial number of pages to create per game
 
 // Helper function to add delay
@@ -285,12 +285,28 @@ async function initPagePool(gameId, count) {
       promises.push(createPreloadedPage(gameId));
     }
     
-    const pages = await Promise.all(promises);
-    gamePool.push(...pages);
+    // Use Promise.allSettled to handle individual page creation failures
+    const results = await Promise.allSettled(promises);
     
-    console.log(`Initialized ${createCount} pages in the pool for game ${gameId}. Total: ${gamePool.length}`);
+    let successfulCreations = 0;
+    results.forEach(result => {
+      if (result.status === 'fulfilled' && result.value) {
+        gamePool.push(result.value);
+        successfulCreations++;
+      } else if (result.status === 'rejected') {
+        console.error(`Failed to create a page for game ${gameId}:`, result.reason.message);
+      }
+    });
+    
+    if (successfulCreations > 0) {
+        console.log(`Successfully initialized ${successfulCreations} of ${createCount} pages for game ${gameId}. Total in pool: ${gamePool.length}`);
+    }
+    if (successfulCreations < createCount) {
+        console.warn(`Failed to initialize ${createCount - successfulCreations} pages for game ${gameId}.`);
+    }
+
   } catch (error) {
-    console.error(`Error initializing page pool for game ${gameId}:`, error);
+    console.error(`Critical error in initPagePool for game ${gameId}:`, error);
   }
 }
 
@@ -301,49 +317,48 @@ async function createPreloadedPage(gameId) {
     throw new Error(`Game ${gameId} not supported`);
   }
   
-  const page = await browser.newPage();
-  page.setDefaultTimeout(15000); // Increase timeout to 15 seconds
-  
-  // Optimize page performance
-  await page.setCacheEnabled(true);
-  await page.setRequestInterception(true);
-  
-  // Block unnecessary resources
-  page.on('request', (req) => {
-    const resourceType = req.resourceType();
-    if (resourceType === 'image' || resourceType === 'font' || resourceType === 'media') {
-      req.abort();
-    } else {
-      req.continue();
-    }
-  });
-  
-  // Load cookies from Redis
-  const cookies = await loadCookies();
-  if (cookies.length > 0) {
-    await page.setCookie(...cookies);
-  }
-  
-  // Navigate to the game's page
+  let page;
   try {
+    page = await browser.newPage();
+    page.setDefaultTimeout(15000); // Increase timeout to 15 seconds
+    
+    // Optimize page performance
+    await page.setCacheEnabled(true);
+    await page.setRequestInterception(true);
+    
+    // Block unnecessary resources
+    page.on('request', (req) => {
+      const resourceType = req.resourceType();
+      if (resourceType === 'image' || resourceType === 'font' || resourceType === 'media') {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+    
+    // Load cookies from Redis
+    const cookies = await loadCookies();
+    if (cookies.length > 0) {
+      await page.setCookie(...cookies);
+    }
+    
+    // Navigate to the game's page
     await page.goto(gameConfig.url, {
-      waitUntil: 'networkidle2', // Changed from domcontentloaded to networkidle2
-      timeout: 60000 // Increased timeout to 60 seconds
+      waitUntil: 'networkidle2', 
+      timeout: 90000 // Increased timeout to 90 seconds
     });
     
     // Wait for the page to be fully loaded
     await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
     
+    return page;
   } catch (error) {
-    console.error(`Error loading page for game ${gameId}:`, error);
-    // Try one more time with different options
-    await page.goto(gameConfig.url, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000 // Increased timeout to 60 seconds
-    });
+    // Close the failed page and re-throw the error
+    if (page) {
+      await page.close().catch(e => console.error('Error closing failed page:', e));
+    }
+    throw error;
   }
-  
-  return page;
 }
 
 // Get a page from the pool or create a new one for a specific game
