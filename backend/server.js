@@ -110,7 +110,8 @@ const saveCookies = async (cookies) => {
         console.log("Redis client not connected, attempting to connect...");
         await initializeRedis();
     }
-    await redisClient.set('midasbuy:cookies', JSON.stringify(cookies, null, 2));
+    // Store cookies in a compact format
+    await redisClient.set('midasbuy:cookies', JSON.stringify(cookies));
     return true;
   } catch (error) {
     console.error('Error saving cookies to Redis:', error);
