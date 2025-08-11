@@ -68,19 +68,19 @@ const SUPPORTED_GAMES = {
     },
     errorText: 'ID de jogo inválida'
   },
-  // pubg: {
-  //   name: "PUBG Mobile",
-  //   url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
-  //   selectors: {
-  //     switchIcon: 'i[class*="switch"]',
-  //     inputField: 'input[placeholder*="ID"]',
-  //     clearButton: 'div[class*="clean_btn"]',
-  //     confirmButton: 'div[class*="btn_primary"]',
-  //     errorMessage: 'div[class*="error_text"]',
-  //     playerName: 'div[class*="UserDataBox_text"]'
-  //   },
-  //   errorText: 'ID de jogo inválida'
-  // }
+  pubg: {
+    name: "PUBG Mobile",
+    url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
+    selectors: {
+      switchIcon: 'i[class*="switch"]',
+      inputField: 'input[placeholder*="ID"]',
+      clearButton: 'div[class*="clean_btn"]',
+      confirmButton: 'div[class*="btn_primary"]',
+      errorMessage: 'div[class*="error_text"]',
+      playerName: 'div[class*="UserDataBox_text"]'
+    },
+    errorText: 'ID de jogo inválida'
+  }
   // Add more games here in the future
 };
 
@@ -353,12 +353,12 @@ async function createPreloadedPage(gameId) {
     
     // Navigate to the game's page
     await page.goto(gameConfig.url, {
-      waitUntil: 'networkidle2', 
-      timeout: 90000 // Increased timeout to 90 seconds
+      waitUntil: 'domcontentloaded', 
+      timeout: 120000 // Increased timeout to 120 seconds for initial load
     });
     
     // Wait for the page to be fully loaded
-    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 });
+    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 30000 });
     
     return page;
   } catch (error) {
@@ -403,7 +403,7 @@ async function releasePage(page, gameId) {
       const gameConfig = SUPPORTED_GAMES[gameId];
       await page.goto(gameConfig.url, {
         waitUntil: 'domcontentloaded',
-        timeout: 20000
+        timeout: 30000
       });
       gamePool.push(page);
       
