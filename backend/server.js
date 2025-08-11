@@ -125,8 +125,8 @@ let isInitializing = false;
 let lastRequestTime = 0;
 const activeRequests = new Map(); // Track active requests
 const pagePool = new Map(); // Pool of pre-initialized pages by game
-const MAX_POOL_SIZE = 2; // Maximum number of pages to keep in the pool per game
-const INITIAL_POOL_SIZE = 5; // Initial number of pages to create per game
+const MAX_POOL_SIZE = 1; // Maximum number of pages to keep in the pool per game
+const INITIAL_POOL_SIZE = 1; // Initial number of pages to create per game
 
 // Helper function to add delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -483,6 +483,18 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
   const requestId = generateRequestId();
   
   logWithTiming(`[START] Received request for game: ${gameId}, player: ${playerId}`, null, requestId);
+
+  // Check if a request for this game is already being processed
+  const isGameBusy = Array.from(activeRequests.values()).some(reqData => reqData.gameId === gameId);
+  if (isGameBusy) {
+    logWithTiming(`[BUSY] Request for game ${gameId} rejected because another is in progress.`, null, requestId);
+    return res.status(503).json({
+      error: 'Network error, please try again',
+      game: gameId,
+      id: playerId,
+      during: msToSeconds(Date.now() - startTime)
+    });
+  }
 
   // Check if the game is supported
   if (!SUPPORTED_GAMES[gameId]) {
