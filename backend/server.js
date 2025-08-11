@@ -358,7 +358,7 @@ async function createPreloadedPage(gameId) {
     });
     
     // Wait for the page to be fully loaded
-    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 30000 });
+    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 60000 });
     
     return page;
   } catch (error) {
@@ -594,8 +594,25 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
       }
     }
     
+    // Wait for the player ID input field, with a retry mechanism
     logWithTiming(`[ACTION] Waiting for player ID input field...`, null, requestId);
-    await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
+    try {
+      await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 8000, visible: true });
+    } catch (error) {
+      logWithTiming('Input field not found on first try. Reloading and retrying...', null, requestId);
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+      
+      // We need to click the switch icon again after reload
+      try {
+        await page.waitForSelector(gameConfig.selectors.switchIcon, { timeout: 5000, visible: true });
+        await page.click(gameConfig.selectors.switchIcon);
+        logWithTiming("Clicked switch icon again after reload.", null, requestId);
+      } catch (e) {
+        logWithTiming("Switch icon not found after reload, but will still try to find input.", null, requestId);
+      }
+
+      await page.waitForSelector(gameConfig.selectors.inputField, { timeout: 15000, visible: true });
+    }
     
     logWithTiming(`[ACTION] Clearing input field...`, null, requestId);
     await page.evaluate((selector) => {
