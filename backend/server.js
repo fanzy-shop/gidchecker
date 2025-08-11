@@ -4,9 +4,28 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const redis = require('redis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// --- Redis Client Setup ---
+const REDIS_URL = process.env.REDIS_URL || 'redis://default:FLnxkIZytEzbyILWMyYYdoMdPAEYQQlP@caboose.proxy.rlwy.net:24360';
+let redisClient;
+
+const initializeRedis = async () => {
+    redisClient = redis.createClient({ url: REDIS_URL });
+
+    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    redisClient.on('connect', () => console.log('Connected to Redis'));
+    redisClient.on('reconnecting', () => console.log('Reconnecting to Redis...'));
+
+    try {
+        await redisClient.connect();
+    } catch (err) {
+        console.error('Failed to connect to Redis:', err);
+    }
+};
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -65,55 +84,36 @@ const SUPPORTED_GAMES = {
   // Add more games here in the future
 };
 
-// Load cookies from file
-const loadCookies = () => {
+// Load cookies from Redis
+const loadCookies = async () => {
   try {
-    // Try to load from root directory first (for Docker)
-    let cookiesPath = path.join(__dirname, '..', 'cookies.json');
-    if (!fs.existsSync(cookiesPath)) {
-      // Try alternative path (for local development)
-      cookiesPath = path.join(__dirname, 'cookies.json');
+    if (!redisClient || !redisClient.isOpen) {
+        console.log("Redis client not connected, attempting to connect...");
+        await initializeRedis();
     }
-    
-    if (fs.existsSync(cookiesPath)) {
-      const cookiesData = fs.readFileSync(cookiesPath, 'utf8');
+    const cookiesData = await redisClient.get('midasbuy:cookies');
+    if (cookiesData) {
       return JSON.parse(cookiesData);
     }
-    
-    // Create empty cookies file if it doesn't exist
-    const sampleCookiesPath = path.join(__dirname, 'sample-cookies.json');
-    if (fs.existsSync(sampleCookiesPath)) {
-      const sampleCookiesData = fs.readFileSync(sampleCookiesPath, 'utf8');
-      fs.writeFileSync(cookiesPath, sampleCookiesData, 'utf8');
-      console.log('Created cookies.json from sample file');
-      return JSON.parse(sampleCookiesData);
-    } else {
-      fs.writeFileSync(cookiesPath, '[]', 'utf8');
-      console.log('Created empty cookies.json file');
-    }
-    
-    console.warn('No cookies available. Please upload cookies via /cookieupload');
+    console.warn('No cookies found in Redis. Please upload cookies via /cookieupload');
     return [];
   } catch (error) {
-    console.error('Error loading cookies:', error);
+    console.error('Error loading cookies from Redis:', error);
     return [];
   }
 };
 
-// Save cookies to file
-const saveCookies = (cookies) => {
+// Save cookies to Redis
+const saveCookies = async (cookies) => {
   try {
-    // Try to save to root directory first (for Docker)
-    let cookiesPath = path.join(__dirname, '..', 'cookies.json');
-    if (!fs.existsSync(path.dirname(cookiesPath))) {
-      // Use alternative path (for local development)
-      cookiesPath = path.join(__dirname, 'cookies.json');
+    if (!redisClient || !redisClient.isOpen) {
+        console.log("Redis client not connected, attempting to connect...");
+        await initializeRedis();
     }
-    
-    fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2), 'utf8');
+    await redisClient.set('midasbuy:cookies', JSON.stringify(cookies, null, 2));
     return true;
   } catch (error) {
-    console.error('Error saving cookies:', error);
+    console.error('Error saving cookies to Redis:', error);
     return false;
   }
 };
@@ -317,8 +317,8 @@ async function createPreloadedPage(gameId) {
     }
   });
   
-  // Load cookies
-  const cookies = loadCookies();
+  // Load cookies from Redis
+  const cookies = await loadCookies();
   if (cookies.length > 0) {
     await page.setCookie(...cookies);
   }
@@ -327,7 +327,7 @@ async function createPreloadedPage(gameId) {
   try {
     await page.goto(gameConfig.url, {
       waitUntil: 'networkidle2', // Changed from domcontentloaded to networkidle2
-      timeout: 30000 // Increase timeout to 30 seconds
+      timeout: 60000 // Increased timeout to 60 seconds
     });
     
     // Wait for the page to be fully loaded
@@ -338,7 +338,7 @@ async function createPreloadedPage(gameId) {
     // Try one more time with different options
     await page.goto(gameConfig.url, {
       waitUntil: 'domcontentloaded',
-      timeout: 30000
+      timeout: 60000 // Increased timeout to 60 seconds
     });
   }
   
@@ -1383,7 +1383,7 @@ app.get('/cookieupload', (req, res) => {
           const messageDiv = document.getElementById('message');
           if (response.ok) {
             messageDiv.className = 'success';
-            messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server will be restarted to apply the new cookies.\`;
+            messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server is updating with new cookies.\`;
             
             // Clear the textarea after successful upload
             document.getElementById('cookieData').value = '';
@@ -1439,7 +1439,7 @@ app.get('/cookieupload', (req, res) => {
           const messageDiv = document.getElementById('message');
           if (response.ok) {
             messageDiv.className = 'success';
-            messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server will be restarted to apply the new cookies.\`;
+            messageDiv.textContent = \`Success! \${result.cookieCount} cookies uploaded. The server is updating with new cookies.\`;
             
             // Reset file input
             fileInput.value = '';
@@ -1495,9 +1495,9 @@ app.post('/cookieupload', express.json({ limit: '1mb' }), async (req, res) => {
       return res.status(400).json({ error: 'No valid cookies found in the provided data' });
     }
     
-    // Save cookies to file
-    if (!saveCookies(processedCookies)) {
-      return res.status(500).json({ error: 'Failed to save cookies' });
+    // Save cookies to Redis
+    if (!(await saveCookies(processedCookies))) {
+      return res.status(500).json({ error: 'Failed to save cookies to Redis' });
     }
     
     // Restart browser to apply new cookies
@@ -1546,9 +1546,9 @@ app.post('/cookieupload/file', upload.single('cookieFile'), async (req, res) => 
       return res.status(400).json({ error: 'No valid cookies found in the uploaded file' });
     }
     
-    // Save cookies to file
-    if (!saveCookies(processedCookies)) {
-      return res.status(500).json({ error: 'Failed to save cookies' });
+    // Save cookies to Redis
+    if (!(await saveCookies(processedCookies))) {
+      return res.status(500).json({ error: 'Failed to save cookies to Redis' });
     }
     
     // Create uploads directory if it doesn't exist
@@ -1643,5 +1643,6 @@ function processCookies(cookieData) {
 // Initialize browser when server starts
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+  await initializeRedis();
   await initBrowser();
 }); 
