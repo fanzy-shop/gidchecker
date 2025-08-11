@@ -68,19 +68,19 @@ const SUPPORTED_GAMES = {
     },
     errorText: 'ID de jogo inválida'
   },
-  pubg: {
-    name: "PUBG Mobile",
-    url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
-    selectors: {
-      switchIcon: 'i[class*="switch"]',
-      inputField: 'input[placeholder*="ID"]',
-      clearButton: 'div[class*="clean_btn"]',
-      confirmButton: 'div[class*="btn_primary"]',
-      errorMessage: 'div[class*="error_text"]',
-      playerName: 'div[class*="UserDataBox_text"]'
-    },
-    errorText: 'ID de jogo inválida'
-  }
+  // pubg: {
+  //   name: "PUBG Mobile",
+  //   url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
+  //   selectors: {
+  //     switchIcon: 'i[class*="switch"]',
+  //     inputField: 'input[placeholder*="ID"]',
+  //     clearButton: 'div[class*="clean_btn"]',
+  //     confirmButton: 'div[class*="btn_primary"]',
+  //     errorMessage: 'div[class*="error_text"]',
+  //     playerName: 'div[class*="UserDataBox_text"]'
+  //   },
+  //   errorText: 'ID de jogo inválida'
+  // }
   // Add more games here in the future
 };
 
@@ -185,6 +185,10 @@ async function typeHumanLike(page, selector, text, requestId) {
 
 // Helper function to bring a page to front
 async function bringToFront(page) {
+  if (!page || page.isClosed()) {
+    console.warn('Warning: Cannot bring page to front because it is already closed.');
+    return;
+  }
   try {
     await page.bringToFront();
     // Force the page to be active
@@ -193,7 +197,11 @@ async function bringToFront(page) {
       document.body.click();
     });
   } catch (error) {
-    console.error('Error bringing page to front:', error);
+    if (error.message.includes('Target closed')) {
+        console.warn('Warning: Could not bring page to front because it was already closed.');
+    } else {
+        console.error('Error bringing page to front:', error);
+    }
   }
 }
 
@@ -671,6 +679,15 @@ app.get('/api/:gameId/:playerId', async (req, res) => {
   } catch (error) {
     clearTimeout(timeoutId);
     logWithTiming(`[ERROR] Unhandled error for player ${playerId}: ${error.message}`, null, requestId);
+    
+    // If headers have already been sent by the timeout, do nothing more.
+    if (res.headersSent) {
+      if (page && !page.isClosed()) {
+        await page.close().catch(() => {});
+      }
+      activeRequests.delete(requestId);
+      return;
+    }
     
     if (page) {
       await page.close().catch(() => {});
