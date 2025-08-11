@@ -68,19 +68,19 @@ const SUPPORTED_GAMES = {
     },
     errorText: 'ID de jogo inválida'
   },
-  // pubg: {
-  //   name: "PUBG Mobile",
-  //   url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
-  //   selectors: {
-  //     switchIcon: 'i[class*="switch"]',
-  //     inputField: 'input[placeholder*="ID"]',
-  //     clearButton: 'div[class*="clean_btn"]',
-  //     confirmButton: 'div[class*="btn_primary"]',
-  //     errorMessage: 'div[class*="error_text"]',
-  //     playerName: 'div[class*="UserDataBox_text"]'
-  //   },
-  //   errorText: 'ID de jogo inválida'
-  // }
+  pubg: {
+    name: "PUBG Mobile",
+    url: "https://www.midasbuy.com/midasbuy/br/redeem/pubgm",
+    selectors: {
+      switchIcon: 'i[class*="switch"]',
+      inputField: 'input[placeholder*="ID"]',
+      clearButton: 'div[class*="clean_btn"]',
+      confirmButton: 'div[class*="btn_primary"]',
+      errorMessage: 'div[class*="error_text"]',
+      playerName: 'div[class*="UserDataBox_text"]'
+    },
+    errorText: 'ID de jogo inválida'
+  }
   // Add more games here in the future
 };
 
