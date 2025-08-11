@@ -125,8 +125,8 @@ let isInitializing = false;
 let lastRequestTime = 0;
 const activeRequests = new Map(); // Track active requests
 const pagePool = new Map(); // Pool of pre-initialized pages by game
-const MAX_POOL_SIZE = 2; // Maximum number of pages to keep in the pool per game
-const INITIAL_POOL_SIZE = 5; // Initial number of pages to create per game
+const MAX_POOL_SIZE = 5; // Maximum number of pages to keep in the pool per game
+const INITIAL_POOL_SIZE = 3; // Initial number of pages to create per game
 
 // Helper function to add delay
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
